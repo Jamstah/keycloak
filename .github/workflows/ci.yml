@@ -46,11 +46,11 @@ jobs:
       matrix:
         arch: [x86_64, s390x]
     runs-on:
-      - Linux
+      - linux
       - ${{ matrix.arch }}
     needs: conditional
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
       - name: Build Keycloak
         uses: ./.github/actions/build-keycloak
