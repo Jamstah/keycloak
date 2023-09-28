@@ -42,7 +42,12 @@ jobs:
   build:
     name: Build
     if: needs.conditional.outputs.ci == 'true'
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x86_64, s390x]
+    runs-on:
+      - Linux
+      - ${{ matrix.arch }}
     needs: conditional
     steps:
       - uses: actions/checkout@v4
