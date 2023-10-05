@@ -114,6 +114,7 @@ public class KeycloakController implements Reconciler<Keycloak>, EventSourceInit
             kcDeployment.rollingRestart();
         }
         kcDeployment.updateStatus(statusAggregator);
+        watchedSecrets.updateStatus(statusAggregator);
         watchedSecrets.createOrUpdateReconciled();
 
         var kcService = new KeycloakService(client, kc);

@@ -31,6 +31,7 @@ import io.quarkus.logging.Log;
 import org.keycloak.operator.Constants;
 import org.keycloak.operator.Utils;
 import org.keycloak.operator.crds.v2alpha1.deployment.Keycloak;
+import org.keycloak.operator.crds.v2alpha1.deployment.KeycloakStatusAggregator;
 
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -51,7 +52,7 @@ import java.util.stream.Collectors;
  *
  * @author Vaclav Muzikar <vmuzikar@redhat.com>
  */
-public class WatchedSecretsStore extends OperatorManagedResource {
+public class WatchedSecretsStore extends OperatorManagedResource implements StatusUpdater<KeycloakStatusAggregator> {
     public static final String COMPONENT = "secrets-store";
     public static final String WATCHED_SECRETS_LABEL_VALUE = "watched-secret";
     public static final String STORE_SUFFIX = "-" + COMPONENT;
@@ -59,12 +60,14 @@ public class WatchedSecretsStore extends OperatorManagedResource {
     private final Secret existingStore; // a Secret to store the last observed versions
 
     // key is name of the secret
+    private final Set<String> watchedSecretsNames;
     private final Map<String, String> lastObservedVersions;
     private final Map<String, String> currentVersions;
     private final Set<Secret> currentSecrets;
 
     public WatchedSecretsStore(Set<String> desiredWatchedSecretsNames, KubernetesClient client, Keycloak kc) {
         super(client, kc);
+        watchedSecretsNames = desiredWatchedSecretsNames;
         existingStore = fetchExistingStore();
         lastObservedVersions = getNewLastObservedVersions();
         currentSecrets = fetchCurrentSecrets(desiredWatchedSecretsNames);
@@ -79,6 +82,23 @@ public class WatchedSecretsStore extends OperatorManagedResource {
             String prevVersion = lastObservedVersions.get(e.getKey());
             return prevVersion != null && !prevVersion.equals(e.getValue());
         });
+    }
+
+    /**
+     * @return true if any of the watched secrets are missing
+     */
+    public Set<String> missingSecrets() {
+        return watchedSecretsNames.stream()
+            .filter(n -> currentSecrets.stream().noneMatch(s -> n.equals(s.getMetadata().getName()) ) )
+            .collect(Collectors.toSet());
+    }
+
+    @Override
+    public void updateStatus(KeycloakStatusAggregator status) {
+        Set<String> missingSecrets = missingSecrets();
+        if (missingSecrets.size() > 0) {
+            status.addWarningMessage("Missing secrets from configuration: " + String.join(", ", missingSecrets));
+        }
     }
 
     @Override
@@ -155,7 +175,8 @@ public class WatchedSecretsStore extends OperatorManagedResource {
 
     private Set<Secret> fetchCurrentSecrets(Set<String> secretsNames) {
         return secretsNames.stream()
-                .map(n -> client.secrets().inNamespace(getNamespace()).withName(n).require())
+                .map(n -> client.secrets().inNamespace(getNamespace()).withName(n).get())
+                .filter(n -> n != null)
                 .collect(Collectors.toSet());
     }
 
