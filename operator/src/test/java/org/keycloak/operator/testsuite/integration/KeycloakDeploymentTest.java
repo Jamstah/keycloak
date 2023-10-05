@@ -116,7 +116,7 @@ public class KeycloakDeploymentTest extends BaseOperatorTest {
             Awaitility.await().untilAsserted(() -> {
                 assertThat(stsResource.get()).isNotNull();
                 Keycloak keycloak = keycloakResource.get();
-                CRAssert.assertKeycloakStatusCondition(keycloak, KeycloakStatusCondition.HAS_ERRORS, false);
+                CRAssert.assertKeycloakStatusCondition(keycloak, KeycloakStatusCondition.HAS_ERRORS, false, "Missing secrets from configuration");
                 CRAssert.assertKeycloakStatusCondition(keycloak, KeycloakStatusCondition.READY, false);
             });
         } catch (Exception e) {
